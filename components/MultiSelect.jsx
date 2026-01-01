@@ -3,25 +3,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Refined knife icon with better proportions
-const KnifeIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M14.5 4.5L19.5 9.5L9.5 19.5L4.5 14.5L14.5 4.5Z" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 7L17 12" strokeLinecap="round"/>
-    <path d="M4.5 14.5L2 22L9.5 19.5" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-// Refined glove icon
-const GloveIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M6 10V5C6 3.89543 6.89543 3 8 3C9.10457 3 10 3.89543 10 5V10" strokeLinecap="round"/>
-    <path d="M10 9V3.5C10 2.67157 10.6716 2 11.5 2C12.3284 2 13 2.67157 13 3.5V9" strokeLinecap="round"/>
-    <path d="M13 9V4C13 3.17157 13.6716 2.5 14.5 2.5C15.3284 2.5 16 3.17157 16 4V9" strokeLinecap="round"/>
-    <path d="M16 10V6C16 5.17157 16.6716 4.5 17.5 4.5C18.3284 4.5 19 5.17157 19 6V14C19 18.4183 15.4183 22 11 22H10C6.68629 22 4 19.3137 4 16V10C4 9.17157 4.67157 8.5 5.5 8.5C6.32843 8.5 7 9.17157 7 10" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
 // Animated checkmark for selections
 const CheckIcon = ({ className }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -68,8 +49,6 @@ export default function MultiSelect({
   const containerRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
-
-  const Icon = variant === 'knife' ? KnifeIcon : GloveIcon;
 
   const filteredOptions = options.filter(option =>
     option.toLowerCase().includes(search.toLowerCase())
@@ -462,14 +441,6 @@ export default function MultiSelect({
                   )}
                 </div>
 
-                {/* Icon */}
-                <div className={`
-                  transition-colors duration-150 shrink-0
-                  ${selected.length === 0 ? 'text-purple-300' : 'text-gray-400 group-hover:text-gray-300'}
-                `}>
-                  <Icon className="w-4 h-4" />
-                </div>
-
                 {/* Label */}
                 <span className={`
                   text-sm font-medium transition-colors duration-150 truncate
@@ -560,14 +531,6 @@ export default function MultiSelect({
                           )}
                         </AnimatePresence>
                       </motion.div>
-
-                      {/* Icon */}
-                      <div className={`
-                        transition-colors duration-150 shrink-0
-                        ${isSelected ? 'text-purple-300' : 'text-gray-400 group-hover:text-gray-300'}
-                      `}>
-                        <Icon className="w-4 h-4" />
-                      </div>
 
                       {/* Label */}
                       <span className={`

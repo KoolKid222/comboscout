@@ -120,10 +120,11 @@ export default function ComboCard({ combo, imageMap, comboId, onClick, isSelecte
           }}
         />
 
-        {/* Score Badge - Floating Top Right */}
+        {/* Score Badge - Floating Top Right (visible on hover) */}
         <div
           className={`absolute top-3 right-3 z-40 px-3 py-1.5 rounded-full text-sm font-bold border-2
-            ${rarity.border} ${rarity.text} ${rarity.bg} backdrop-blur-md shadow-lg`}
+            ${rarity.border} ${rarity.text} ${rarity.bg} backdrop-blur-md shadow-lg
+            transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
         >
             <span>{combo.styleScore}</span>
         </div>

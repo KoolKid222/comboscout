@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Loader2 } from 'lucide-react';
 import { useInventory } from '@/lib/InventoryContext';
 import { getSlotsByCategory, SLOT_CATEGORIES, PREMIUM_SLOTS, WEAPON_SLOTS } from '@/lib/weaponSlots';
-import { getStyleScore, getWeaponMatchScore } from '@/lib/styleMatcher';
+import { getStyleScore, getWeaponMatchScore, getSkinData } from '@/lib/styleMatcher';
 import WeaponSlot from './WeaponSlot';
 import WeaponBrowser from './WeaponBrowser';
 
@@ -16,6 +16,148 @@ const getMatchRarity = (score) => {
   if (score >= 70) return { name: 'RARE', color: 'text-purple-400', gradient: 'from-purple-500 to-violet-600' };
   if (score >= 60) return { name: 'UNCOMMON', color: 'text-blue-400', gradient: 'from-blue-500 to-cyan-600' };
   return { name: 'COMMON', color: 'text-gray-400', gradient: 'from-gray-500 to-zinc-600' };
+};
+
+// Get the inventory profile for diversity calculations
+const getInventoryProfile = (filledItems) => {
+  const profile = {
+    textures: {},
+    weights: {},
+    hueBalance: { warm: 0, cool: 0, neutral: 0 },
+  };
+
+  for (const item of filledItems) {
+    if (!item?.name) continue;
+    const skinData = getSkinData(item.name);
+    if (!skinData) continue;
+
+    // Count textures
+    const texture = skinData.texture || 'unknown';
+    profile.textures[texture] = (profile.textures[texture] || 0) + 1;
+
+    // Count weights
+    const weight = skinData.weight || 'medium';
+    profile.weights[weight] = (profile.weights[weight] || 0) + 1;
+
+    // Categorize hue (warm: red/orange/yellow, cool: blue/green/purple, neutral: gray/black/white)
+    const [hue, sat] = skinData.hsl;
+    if (sat < 15) {
+      profile.hueBalance.neutral++;
+    } else if (hue < 60 || hue > 300) {
+      profile.hueBalance.warm++;
+    } else {
+      profile.hueBalance.cool++;
+    }
+  }
+
+  return profile;
+};
+
+// Texture families for cohesion matching
+const TEXTURE_FAMILIES = {
+  organic: ['organic', 'nature', 'animal', 'reptile', 'web', 'floral', 'beast', 'aquatic'],
+  tactical: ['camo', 'military', 'industrial', 'worn', 'desert', 'arctic'],
+  elegant: ['gem', 'gradient', 'ornate', 'formal', 'clean', 'ancient', 'mythic', 'ripple'],
+  tech: ['tech', 'metallic', 'geometric', 'neon', 'glitch', 'space', 'electric'],
+  casual: ['sport', 'fabric', 'leather', 'retro', 'comic', 'fun', 'fashion'],
+  dark: ['stealth', 'burnt', 'smoke', 'noir', 'horror', 'skull', 'contrast'],
+  artistic: ['art', 'pattern', 'tattoo', 'japanese', 'tribal', 'psychedelic', 'stripe'],
+  elemental: ['fire', 'storm', 'elemental', 'cracked', 'rust', 'patina', 'galaxy', 'wood'],
+};
+
+// "Safe/boring" textures that shouldn't be prioritized
+const SAFE_TEXTURES = ['clean', 'stealth', 'unknown'];
+
+// Get the texture family for a texture
+const getTextureFamily = (texture) => {
+  for (const [family, textures] of Object.entries(TEXTURE_FAMILIES)) {
+    if (textures.includes(texture)) return family;
+  }
+  return null;
+};
+
+// Calculate bonus for auto-fill selection (boldness + cohesion)
+const calculateAutoFillBonus = (skinName, profile, totalItems, knifeData, gloveData) => {
+  const skinData = getSkinData(skinName);
+  if (!skinData) return 0;
+
+  let bonus = 0;
+  const texture = skinData.texture || 'unknown';
+  const [, sat, light] = skinData.hsl;
+  const weight = skinData.weight || 'medium';
+
+  // === COHESION BONUS: Match knife/glove texture family ===
+  const skinFamily = getTextureFamily(texture);
+  const knifeFamily = knifeData ? getTextureFamily(knifeData.texture) : null;
+  const gloveFamily = gloveData ? getTextureFamily(gloveData.texture) : null;
+
+  if (skinFamily) {
+    // Strong bonus for matching knife's texture family
+    if (knifeFamily && skinFamily === knifeFamily) {
+      bonus += 12;
+    }
+    // Bonus for matching glove's texture family
+    if (gloveFamily && skinFamily === gloveFamily) {
+      bonus += 8;
+    }
+  }
+
+  // === BOLDNESS BONUS: Prefer colorful, interesting skins ===
+  // Bonus for colorful skins (higher saturation)
+  if (sat >= 50) {
+    bonus += 8; // Vibrant colors
+  } else if (sat >= 30) {
+    bonus += 4; // Moderate color
+  } else if (sat < 15) {
+    bonus -= 6; // Penalize very desaturated/gray skins
+  }
+
+  // Bonus for bold visual weight
+  if (weight === 'bold') {
+    bonus += 5;
+  } else if (weight === 'subtle') {
+    bonus -= 3; // Slight penalty for subtle skins
+  }
+
+  // Penalize "safe" boring textures
+  if (SAFE_TEXTURES.includes(texture)) {
+    bonus -= 8;
+  }
+
+  // Penalize very dark or very light (washed out) skins
+  if (light < 20 || light > 75) {
+    bonus -= 4;
+  }
+
+  // === DIVERSITY: Don't pick too many of the same texture ===
+  const sameTextureCount = profile.textures[texture] || 0;
+  if (sameTextureCount >= 3) {
+    bonus -= 8 * (sameTextureCount - 2);
+  }
+
+  // Small bonus for introducing variety (but less than cohesion)
+  if (sameTextureCount === 0 && !SAFE_TEXTURES.includes(texture)) {
+    bonus += 3;
+  }
+
+  // === HUE BALANCE ===
+  if (totalItems >= 3) {
+    const total = profile.hueBalance.warm + profile.hueBalance.cool + profile.hueBalance.neutral;
+    if (total > 0) {
+      const [hue] = skinData.hsl;
+      let skinTemp = 'neutral';
+      if (sat >= 15) {
+        skinTemp = (hue < 60 || hue > 300) ? 'warm' : 'cool';
+      }
+
+      const currentRatio = profile.hueBalance[skinTemp] / total;
+      if (currentRatio >= 0.7) {
+        bonus -= 4; // Too much of same temperature
+      }
+    }
+  }
+
+  return bonus;
 };
 
 export default function InventoryOverlay({ isOpen, onClose }) {
@@ -47,7 +189,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
   const knifeName = knifeItem?.name || null;
   const gloveName = glovesItem?.name || null;
 
-  // Auto fill all empty weapon slots with best matching skins
+  // Auto fill all empty weapon slots with best matching skins (bold + cohesive)
   const handleAutoFill = async () => {
     if (!hasKnifeOrGloves) return;
 
@@ -58,29 +200,63 @@ export default function InventoryOverlay({ isOpen, onClose }) {
       const emptySlots = Object.keys(WEAPON_SLOTS)
         .filter(id => !PREMIUM_SLOTS.includes(id) && !getItem(id));
 
-      // For each empty slot, fetch skins and pick the best
+      // Get knife/glove skin data for cohesion matching
+      const knifeData = knifeName ? getSkinData(knifeName) : null;
+      const gloveData = gloveName ? getSkinData(gloveName) : null;
+
+      // Build initial inventory profile from existing items (knife, gloves, and any filled slots)
+      const existingItems = [];
+      if (knifeItem) existingItems.push(knifeItem);
+      if (glovesItem) existingItems.push(glovesItem);
+
+      // Add any already-filled weapon slots
+      Object.keys(WEAPON_SLOTS).forEach(slotId => {
+        if (!PREMIUM_SLOTS.includes(slotId)) {
+          const item = getItem(slotId);
+          if (item) existingItems.push(item);
+        }
+      });
+
+      // Track the current profile (will be updated as we add items)
+      let currentProfile = getInventoryProfile(existingItems);
+      let totalItems = existingItems.length;
+
+      // For each empty slot, fetch skins and pick the best (bold + cohesive)
       for (const slotId of emptySlots) {
         try {
           const res = await fetch(`/api/weapons?type=${slotId}`);
           const data = await res.json();
 
           if (data.skins && data.skins.length > 0) {
-            // Score each skin and find the best
-            const scored = data.skins.map(skin => ({
-              ...skin,
-              score: getWeaponMatchScore(skin.name, knifeName, gloveName).score
-            }));
+            // Score each skin: base match + boldness/cohesion bonus
+            const scored = data.skins.map(skin => {
+              const baseScore = getWeaponMatchScore(skin.name, knifeName, gloveName).score;
+              const autoFillBonus = calculateAutoFillBonus(skin.name, currentProfile, totalItems, knifeData, gloveData);
+              return {
+                ...skin,
+                baseScore,
+                autoFillBonus,
+                score: baseScore + autoFillBonus,
+              };
+            });
             scored.sort((a, b) => b.score - a.score);
 
             // Add best skin to inventory (use cheapest variant)
             const best = scored[0];
             const variant = best.variants[0];
-            setItem(slotId, {
+            const newItem = {
               name: variant.fullName,
               price: variant.price,
               condition: variant.condition,
               image: null, // will load lazily
-            });
+            };
+
+            setItem(slotId, newItem);
+
+            // Update the profile for the next iteration
+            existingItems.push(newItem);
+            currentProfile = getInventoryProfile(existingItems);
+            totalItems++;
           }
         } catch (err) {
           console.error(`Error fetching skins for ${slotId}:`, err);
