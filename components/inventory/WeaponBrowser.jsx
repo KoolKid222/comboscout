@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Sparkles, DollarSign, Loader2 } from 'lucide-react';
+import { ArrowLeft, DollarSign, Loader2 } from 'lucide-react';
 import { WEAPON_SLOTS } from '@/lib/weaponSlots';
 import { getWeaponMatchScore } from '@/lib/styleMatcher';
 import WeaponSkinCard from './WeaponSkinCard';
@@ -126,7 +126,6 @@ export default function WeaponBrowser({
                 : 'text-gray-400 hover:text-gray-300'
               }`}
           >
-            <Sparkles className="w-3.5 h-3.5" />
             Match
           </button>
           <button
@@ -146,28 +145,22 @@ export default function WeaponBrowser({
       {/* Knife/Gloves matching banner */}
       {hasKnifeOrGloves ? (
         <div className="mb-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-          <div className="flex items-center gap-2 text-sm">
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            <span className="text-purple-300">
-              Matching skins to your{' '}
-              {knifeName && gloveName ? (
-                <span className="font-semibold text-purple-200">knife & gloves combo</span>
-              ) : knifeName ? (
-                <span className="font-semibold text-purple-200">knife</span>
-              ) : (
-                <span className="font-semibold text-purple-200">gloves</span>
-              )}
-            </span>
-          </div>
+          <p className="text-sm text-purple-300">
+            Matching skins to your{' '}
+            {knifeName && gloveName ? (
+              <span className="font-semibold text-purple-200">knife & gloves combo</span>
+            ) : knifeName ? (
+              <span className="font-semibold text-purple-200">knife</span>
+            ) : (
+              <span className="font-semibold text-purple-200">gloves</span>
+            )}
+          </p>
         </div>
       ) : (
         <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-          <div className="flex items-center gap-2 text-sm">
-            <Sparkles className="w-4 h-4 text-yellow-400" />
-            <span className="text-yellow-300">
-              Add a knife or gloves to your inventory to see match scores
-            </span>
-          </div>
+          <p className="text-sm text-yellow-300">
+            Add a knife or gloves to your inventory to see match scores
+          </p>
         </div>
       )}
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, useMotionValue, useTransform, useSpring, useMotionTemplate } from 'framer-motion';
-import { ExternalLink, Sparkles } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 
 // Rarity colors based on CS2 item tiers
 const getRarityColor = (score) => {
@@ -125,10 +125,7 @@ export default function ComboCard({ combo, imageMap, comboId, onClick, isSelecte
           className={`absolute top-3 right-3 z-40 px-3 py-1.5 rounded-full text-sm font-bold border-2
             ${rarity.border} ${rarity.text} ${rarity.bg} backdrop-blur-md shadow-lg`}
         >
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
             <span>{combo.styleScore}</span>
-          </div>
         </div>
 
         {/* Visual Viewport - The 3D Layered Image Section */}

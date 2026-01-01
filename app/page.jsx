@@ -471,7 +471,6 @@ export default function Home() {
         {/* Empty State */}
         {!loading && filteredCombos.length === 0 && (
           <div className="text-center py-20 bg-gray-800/30 rounded-3xl border border-gray-800 border-dashed animate-fade-in-up">
-            <div className="text-6xl mb-4 opacity-50">🔍</div>
             <h3 className="text-2xl font-bold text-gray-400 mb-2">No combos found</h3>
             <p className="text-gray-500">Try adjusting your filters or increasing your budget.</p>
           </div>

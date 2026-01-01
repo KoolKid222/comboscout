@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Check, Sparkles } from 'lucide-react';
+import { Plus, Check } from 'lucide-react';
 
 // Score-based rarity colors (matching ComboCard pattern)
 const getScoreRarity = (score) => {
@@ -92,9 +92,8 @@ export default function WeaponSkinCard({
     >
       {/* Match score badge */}
       {matchScore !== null && (
-        <div className={`absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1
+        <div className={`absolute top-2 right-2 z-10 px-2 py-1
           rounded-full ${rarity.border} bg-gray-900/80 backdrop-blur-sm`}>
-          <Sparkles className={`w-3 h-3 ${rarity.text}`} />
           <span className={`text-xs font-bold ${rarity.text}`}>{matchScore}</span>
         </div>
       )}

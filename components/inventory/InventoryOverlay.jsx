@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Sparkles, Wand2, Loader2 } from 'lucide-react';
+import { X, Trash2, Loader2 } from 'lucide-react';
 import { useInventory } from '@/lib/InventoryContext';
 import { getSlotsByCategory, SLOT_CATEGORIES, PREMIUM_SLOTS, WEAPON_SLOTS } from '@/lib/weaponSlots';
 import { getStyleScore, getWeaponMatchScore } from '@/lib/styleMatcher';
@@ -183,11 +183,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
                     }`}
                   title={!hasKnifeOrGloves ? 'Add knife or gloves first' : 'Auto fill all empty slots with best matching skins'}
                 >
-                  {autoFilling ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Wand2 className="w-4 h-4" />
-                  )}
+                  {autoFilling && <Loader2 className="w-4 h-4 animate-spin" />}
                   {autoFilling ? 'Filling...' : 'Auto Fill'}
                 </button>
 
@@ -234,8 +230,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
                   <div className="flex flex-col items-center">
                     <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br ${matchRarity.gradient}
                       flex flex-col items-center justify-center shadow-lg`}>
-                      <Sparkles className="w-4 h-4 text-white/80 mb-0.5" />
-                      <span className="text-white font-black text-lg">{matchScore}</span>
+                      <span className="text-white font-black text-xl">{matchScore}</span>
                     </div>
                     <p className={`text-xs font-bold mt-2 ${matchRarity.color}`}>
                       {matchRarity.name}
