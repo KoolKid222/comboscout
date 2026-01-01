@@ -160,6 +160,96 @@ const calculateAutoFillBonus = (skinName, profile, totalItems, knifeData, gloveD
   return bonus;
 };
 
+// =============================================================================
+// STRICT HUE CLAMP FOR AUTO-FILL
+// Ensures monotone, cohesive loadouts by filtering skins outside anchor hue range
+// =============================================================================
+
+const HUE_CLAMP_RANGE = 45; // Maximum hue difference allowed (degrees)
+const NEUTRAL_SAT_THRESHOLD = 15; // Skins below this saturation are considered neutral
+
+/**
+ * Calculate hue difference accounting for circular nature of hue (0-360)
+ */
+const hueDifference = (h1, h2) => {
+  const diff = Math.abs(h1 - h2);
+  return Math.min(diff, 360 - diff);
+};
+
+/**
+ * Calculate the anchor hue from knife and/or gloves
+ * Uses weighted average if both are present, favoring knife
+ */
+const calculateAnchorHue = (knifeData, gloveData) => {
+  // If neither has data, return null (no filtering)
+  if (!knifeData && !gloveData) return null;
+
+  const knifeHue = knifeData?.hsl?.[0];
+  const knifeSat = knifeData?.hsl?.[1] ?? 0;
+  const gloveHue = gloveData?.hsl?.[0];
+  const gloveSat = gloveData?.hsl?.[1] ?? 0;
+
+  // If knife is neutral (low saturation), use glove's hue
+  const knifeIsNeutral = knifeSat < NEUTRAL_SAT_THRESHOLD;
+  // If glove is neutral, use knife's hue
+  const gloveIsNeutral = gloveSat < NEUTRAL_SAT_THRESHOLD;
+
+  // Both neutral = no hue anchor (allow all)
+  if (knifeIsNeutral && gloveIsNeutral) return null;
+
+  // Only knife has color
+  if (gloveIsNeutral || gloveHue === undefined) return knifeHue;
+
+  // Only glove has color
+  if (knifeIsNeutral || knifeHue === undefined) return gloveHue;
+
+  // Both have color - calculate weighted average (favor knife 60/40)
+  // Handle hue wrapping (e.g., 350° and 10° should average to 0°, not 180°)
+  let diff = gloveHue - knifeHue;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+
+  let anchor = knifeHue + (diff * 0.4); // 60% knife, 40% glove
+  if (anchor < 0) anchor += 360;
+  if (anchor >= 360) anchor -= 360;
+
+  return anchor;
+};
+
+/**
+ * Filter skins by anchor hue - STRICT filter for Auto-Fill
+ * Returns only skins within HUE_CLAMP_RANGE of anchor, plus neutrals
+ *
+ * @param {Array} skins - Array of skin objects with 'name' property
+ * @param {number|null} anchorHue - The anchor hue to filter by (null = no filter)
+ * @returns {Array} Filtered array of skins
+ */
+const filterSkinsByAnchorHue = (skins, anchorHue) => {
+  // No anchor = no filtering (both knife/glove are neutral or missing)
+  if (anchorHue === null || anchorHue === undefined) {
+    return skins;
+  }
+
+  return skins.filter(skin => {
+    const skinData = getSkinData(skin.name);
+    if (!skinData) return false;
+
+    const [skinHue, skinSat] = skinData.hsl;
+
+    // RULE 1: Always allow neutral skins (black/grey/white)
+    if (skinSat < NEUTRAL_SAT_THRESHOLD) {
+      return true;
+    }
+
+    // RULE 2: Check if skin hue is within the clamp range
+    const diff = hueDifference(skinHue, anchorHue);
+
+    // Strict clamp: must be within 45 degrees
+    // This automatically blocks complementary colors (180° apart)
+    return diff <= HUE_CLAMP_RANGE;
+  });
+};
+
 export default function InventoryOverlay({ isOpen, onClose }) {
   const { inventory, stats, removeItem, clearAll, getItem, setItem, totalSlots } = useInventory();
   const [browsingSlot, setBrowsingSlot] = useState(null);
@@ -189,7 +279,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
   const knifeName = knifeItem?.name || null;
   const gloveName = glovesItem?.name || null;
 
-  // Auto fill all empty weapon slots with best matching skins (bold + cohesive)
+  // Auto fill all empty weapon slots with best matching skins (monotone + cohesive)
   const handleAutoFill = async () => {
     if (!hasKnifeOrGloves) return;
 
@@ -203,6 +293,10 @@ export default function InventoryOverlay({ isOpen, onClose }) {
       // Get knife/glove skin data for cohesion matching
       const knifeData = knifeName ? getSkinData(knifeName) : null;
       const gloveData = gloveName ? getSkinData(gloveName) : null;
+
+      // STEP 1: Calculate Anchor Hue for strict filtering
+      // This ensures a monotone, cohesive loadout
+      const anchorHue = calculateAnchorHue(knifeData, gloveData);
 
       // Build initial inventory profile from existing items (knife, gloves, and any filled slots)
       const existingItems = [];
@@ -221,15 +315,23 @@ export default function InventoryOverlay({ isOpen, onClose }) {
       let currentProfile = getInventoryProfile(existingItems);
       let totalItems = existingItems.length;
 
-      // For each empty slot, fetch skins and pick the best (bold + cohesive)
+      // For each empty slot, fetch skins and pick the best (monotone + cohesive)
       for (const slotId of emptySlots) {
         try {
           const res = await fetch(`/api/weapons?type=${slotId}`);
           const data = await res.json();
 
           if (data.skins && data.skins.length > 0) {
-            // Score each skin: base match + boldness/cohesion bonus
-            const scored = data.skins.map(skin => {
+            // STEP 2: STRICT HUE FILTER - Filter skins BEFORE scoring
+            // This runs before any scoring, so prestige/rarity cannot override it
+            // Only skins within ±45° of anchor hue (or neutrals) pass through
+            const filteredSkins = filterSkinsByAnchorHue(data.skins, anchorHue);
+
+            // If no skins pass the filter, fall back to all skins (rare edge case)
+            const skinsToScore = filteredSkins.length > 0 ? filteredSkins : data.skins;
+
+            // STEP 3: Score the filtered skins
+            const scored = skinsToScore.map(skin => {
               const baseScore = getWeaponMatchScore(skin.name, knifeName, gloveName).score;
               const autoFillBonus = calculateAutoFillBonus(skin.name, currentProfile, totalItems, knifeData, gloveData);
               return {
