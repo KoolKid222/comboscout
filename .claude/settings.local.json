@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:api.skinport.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

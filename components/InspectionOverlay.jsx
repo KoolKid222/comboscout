@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, useMotionValue, useTransform, useSpring, AnimatePresence } from 'framer-motion';
-import { X, ExternalLink } from 'lucide-react';
+import { X, ExternalLink, Info } from 'lucide-react';
+import { getStyleScoreBreakdown } from '@/lib/styleMatcher';
+import AddToInventoryButton from './inventory/AddToInventoryButton';
 
 // Map atmospheres with color grading
 const mapAtmospheres = [
@@ -265,6 +267,13 @@ function FloatingParticles({ color }) {
 
 export default function InspectionOverlay({ combo, imageMap, comboId, isOpen, onClose }) {
   const [selectedMap, setSelectedMap] = useState('studio');
+  const [showScoreTooltip, setShowScoreTooltip] = useState(false);
+
+  // Calculate score breakdown when combo changes
+  const scoreBreakdown = useMemo(() => {
+    if (!combo?.knife || !combo?.glove) return null;
+    return getStyleScoreBreakdown(combo.knife, combo.glove);
+  }, [combo?.knife, combo?.glove]);
 
   // Mouse tracking for parallax
   const mouseX = useMotionValue(0.5);
@@ -508,22 +517,91 @@ export default function InspectionOverlay({ combo, imageMap, comboId, isOpen, on
               )}
             </div>
 
-            {/* Rarity Badge */}
-            <motion.div
-              className={`mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full ${rarity.bg}
-                border ${rarity.border} backdrop-blur-sm`}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.6 }}
-            >
-              <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${rarity.gradient} animate-pulse`} />
-              <span className={`text-xs font-bold tracking-[0.2em] ${rarity.color}`}>
-                {rarity.name} MATCH
-              </span>
-              <span className={`text-sm font-black ${rarity.color}`}>
-                {combo.styleScore}
-              </span>
-            </motion.div>
+            {/* Rarity Badge with Score Tooltip */}
+            <div className="relative mt-6 inline-block">
+              <motion.div
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${rarity.bg}
+                  border ${rarity.border} backdrop-blur-sm cursor-help`}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6 }}
+                onMouseEnter={() => setShowScoreTooltip(true)}
+                onMouseLeave={() => setShowScoreTooltip(false)}
+              >
+                <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${rarity.gradient} animate-pulse`} />
+                <span className={`text-xs font-bold tracking-[0.2em] ${rarity.color}`}>
+                  {rarity.name} MATCH
+                </span>
+                <span className={`text-sm font-black ${rarity.color}`}>
+                  {combo.styleScore}
+                </span>
+                <Info className={`w-3.5 h-3.5 ${rarity.color} opacity-50`} />
+              </motion.div>
+
+              {/* Score Breakdown Tooltip */}
+              <AnimatePresence>
+                {showScoreTooltip && scoreBreakdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute top-full left-0 mt-3 z-50 w-72"
+                  >
+                    <div className="bg-black/90 backdrop-blur-xl rounded-xl border border-white/10
+                      shadow-2xl shadow-black/50 overflow-hidden">
+                      {/* Header */}
+                      <div className={`px-4 py-3 border-b border-white/10 ${rarity.bg}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/70 text-xs font-medium tracking-wider uppercase">
+                            Score Breakdown
+                          </span>
+                          <span className={`text-lg font-black ${rarity.color}`}>
+                            {scoreBreakdown.finalScore}
+                          </span>
+                        </div>
+                        <p className={`text-sm font-semibold ${rarity.color} mt-1`}>
+                          {scoreBreakdown.summary}
+                        </p>
+                      </div>
+
+                      {/* Factors */}
+                      <div className="px-4 py-3 space-y-2.5">
+                        {scoreBreakdown.factors.map((factor, idx) => (
+                          <div key={idx} className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white/90 text-xs font-semibold">
+                                {factor.label}
+                              </p>
+                              <p className="text-white/50 text-xs truncate">
+                                {factor.value}
+                              </p>
+                            </div>
+                            <span className={`text-xs font-mono font-bold whitespace-nowrap ${
+                              factor.impact.startsWith('-') ? 'text-red-400' :
+                              factor.impact.startsWith('+') ? 'text-green-400' :
+                              'text-yellow-400'
+                            }`}>
+                              {factor.impact}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Base score footer */}
+                      <div className="px-4 py-2 bg-white/5 border-t border-white/10">
+                        <p className="text-white/40 text-[10px] font-medium tracking-wider">
+                          BASE: 25 PTS + COLOR + TEXTURE + PRESTIGE
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Tooltip arrow */}
+                    <div className="absolute -top-2 left-6 w-4 h-4 rotate-45 bg-black/90 border-l border-t border-white/10" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </motion.div>
 
           {/* ========== HUD PANEL B: Commerce Engine (Bottom Right) ========== */}
@@ -573,6 +651,32 @@ export default function InspectionOverlay({ combo, imageMap, comboId, isOpen, on
                 <span className="text-white/80 text-sm font-medium group-hover:text-white transition-colors">Buy Gloves</span>
                 <ExternalLink className="w-4 h-4 text-white/40 group-hover:text-white/70 transition-colors" />
               </a>
+            </div>
+
+            {/* Add to Inventory Buttons */}
+            <div className="flex flex-col gap-2 mt-4">
+              <AddToInventoryButton
+                item={{
+                  name: combo.knife,
+                  condition: combo.knifeCondition,
+                  price: combo.knifePrice,
+                  image: knifeImage,
+                  marketLink: combo.knifeLink,
+                }}
+                slotId="knife"
+                label="Add Knife"
+              />
+              <AddToInventoryButton
+                item={{
+                  name: combo.glove,
+                  condition: combo.gloveCondition,
+                  price: combo.glovePrice,
+                  image: gloveImage,
+                  marketLink: combo.gloveLink,
+                }}
+                slotId="gloves"
+                label="Add Gloves"
+              />
             </div>
           </motion.div>
 

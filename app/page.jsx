@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { Backpack } from 'lucide-react';
 import { getStyleScore } from '@/lib/styleMatcher';
+import { useInventory } from '@/lib/InventoryContext';
 import MultiSelect from '@/components/MultiSelect';
 import ComboCard from '@/components/ComboCard';
 import InspectionOverlay from '@/components/InspectionOverlay';
+import InventoryOverlay from '@/components/inventory/InventoryOverlay';
 
 // Condition rankings (higher = better, proxy for lower float)
 const conditionRank = {
@@ -71,7 +74,7 @@ export default function Home() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [knives, setKnives] = useState([]);
   const [gloves, setGloves] = useState([]);
-  
+
   // Filter States (arrays for multi-select)
   const [selectedKnifeTypes, setSelectedKnifeTypes] = useState([]);
   const [selectedGloveTypes, setSelectedGloveTypes] = useState([]);
@@ -82,6 +85,10 @@ export default function Home() {
   const inFlightImages = useRef(new Set());
   const gridRef = useRef(null);
   const [selectedComboId, setSelectedComboId] = useState(null);
+  const [showInventory, setShowInventory] = useState(false);
+
+  // Inventory context
+  const { stats } = useInventory();
 
   // Fetch prices on mount
   useEffect(() => {
@@ -275,7 +282,23 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         
         {/* Header */}
-        <header className="text-center mb-10 animate-fade-in-up">
+        <header className="text-center mb-10 animate-fade-in-up relative">
+          {/* Inventory Button - Top Right */}
+          <button
+            onClick={() => setShowInventory(true)}
+            className="absolute right-0 top-0 flex items-center gap-2 px-4 py-2.5 rounded-xl
+              bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 hover:border-purple-500/50
+              text-purple-300 hover:text-white transition-all group"
+          >
+            <Backpack className="w-5 h-5" />
+            <span className="font-medium text-sm hidden sm:inline">Inventory</span>
+            {stats.filledSlots > 0 && (
+              <span className="bg-purple-500/30 group-hover:bg-purple-500/50 px-2 py-0.5 rounded-full text-xs font-bold">
+                {stats.filledSlots}
+              </span>
+            )}
+          </button>
+
           <h1 className="text-4xl md:text-6xl font-black mb-4 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent tracking-tight animate-gradient">
             ComboScout
           </h1>
@@ -463,6 +486,12 @@ export default function Home() {
         comboId={selectedComboId}
         isOpen={selectedComboId !== null}
         onClose={() => setSelectedComboId(null)}
+      />
+
+      {/* Inventory Overlay */}
+      <InventoryOverlay
+        isOpen={showInventory}
+        onClose={() => setShowInventory(false)}
       />
     </main>
   );
