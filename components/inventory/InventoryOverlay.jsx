@@ -8,6 +8,7 @@ import { getSlotsByCategory, SLOT_CATEGORIES, PREMIUM_SLOTS, WEAPON_SLOTS } from
 import { getStyleScore, getWeaponMatchScore, getSkinData } from '@/lib/styleMatcher';
 import WeaponSlot from './WeaponSlot';
 import WeaponBrowser from './WeaponBrowser';
+import PremiumBrowser from './PremiumBrowser';
 import WeaponShowroom from './WeaponShowroom';
 
 // Get rarity info for the knife+glove match score
@@ -414,7 +415,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
               <X className="w-6 h-6" />
             </motion.button>
 
-            {/* Weapon Browser View */}
+            {/* Browser View - Premium (knife/gloves) or Weapon */}
             {browsingSlot && (
               <motion.div
                 className="max-w-6xl mx-auto h-[calc(100vh-4rem)]"
@@ -422,12 +423,21 @@ export default function InventoryOverlay({ isOpen, onClose }) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
               >
-                <WeaponBrowser
-                  slotId={browsingSlot}
-                  inventory={inventoryForBrowser}
-                  onSelect={handleSkinSelect}
-                  onBack={() => setBrowsingSlot(null)}
-                />
+                {PREMIUM_SLOTS.includes(browsingSlot) ? (
+                  <PremiumBrowser
+                    slotId={browsingSlot}
+                    inventory={inventoryForBrowser}
+                    onSelect={handleSkinSelect}
+                    onBack={() => setBrowsingSlot(null)}
+                  />
+                ) : (
+                  <WeaponBrowser
+                    slotId={browsingSlot}
+                    inventory={inventoryForBrowser}
+                    onSelect={handleSkinSelect}
+                    onBack={() => setBrowsingSlot(null)}
+                  />
+                )}
               </motion.div>
             )}
 
@@ -507,6 +517,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
                     item={getItem('knife')}
                     isPremium
                     onRemove={removeItem}
+                    onBrowse={setBrowsingSlot}
                     onInspect={handleInspect}
                   />
                 </div>
@@ -532,6 +543,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
                     item={getItem('gloves')}
                     isPremium
                     onRemove={removeItem}
+                    onBrowse={setBrowsingSlot}
                     onInspect={handleInspect}
                   />
                 </div>

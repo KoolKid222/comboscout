@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, useMotionValue, useTransform, useSpring, useMotionTemplate } from 'framer-motion';
-import { ExternalLink } from 'lucide-react';
+import { motion, useMotionValue, useTransform, useSpring, useMotionTemplate, AnimatePresence } from 'framer-motion';
+import { ExternalLink, Plus, Check } from 'lucide-react';
 
 // Rarity colors based on CS2 item tiers
 const getRarityColor = (score) => {
@@ -13,8 +13,9 @@ const getRarityColor = (score) => {
   return { border: 'border-gray-500', glow: 'shadow-gray-500/40', text: 'text-gray-400', bg: 'bg-gray-500/10', gradient: 'from-gray-500 to-zinc-600' };
 };
 
-export default function ComboCard({ combo, imageMap, comboId, onClick, isSelected }) {
+export default function ComboCard({ combo, imageMap, comboId, onClick, isSelected, onAddToInventory, comboInInventory }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
 
   // Raw motion values for mouse position (-0.5 to 0.5)
   const mouseX = useMotionValue(0);
@@ -64,13 +65,22 @@ export default function ComboCard({ combo, imageMap, comboId, onClick, isSelecte
   };
 
   const handleClick = (e) => {
-    // Don't trigger if clicking on buy links
-    if (e.target.closest('a')) return;
+    // Don't trigger if clicking on buy links or add button
+    if (e.target.closest('a') || e.target.closest('button')) return;
     // Reset hover state when opening overlay
     setIsHovered(false);
     mouseX.set(0);
     mouseY.set(0);
     onClick?.();
+  };
+
+  const handleAddToInventory = (e) => {
+    e.stopPropagation();
+    if (onAddToInventory && !comboInInventory) {
+      onAddToInventory(combo);
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 2000);
+    }
   };
 
   const rarity = getRarityColor(combo.styleScore);
@@ -128,6 +138,36 @@ export default function ComboCard({ combo, imageMap, comboId, onClick, isSelecte
         >
             <span>{combo.styleScore}</span>
         </div>
+
+        {/* Add to Inventory Button - Floating Top Left (visible on hover) */}
+        <AnimatePresence>
+          {isHovered && onAddToInventory && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              onClick={handleAddToInventory}
+              className={`absolute top-3 left-3 z-40 px-3 py-1.5 rounded-full text-xs font-bold
+                backdrop-blur-md shadow-lg transition-colors flex items-center gap-1.5
+                ${comboInInventory || justAdded
+                  ? 'bg-green-500/20 border-2 border-green-500/50 text-green-400'
+                  : 'bg-white/10 border-2 border-white/20 text-white hover:bg-white/20 hover:border-white/30'
+                }`}
+            >
+              {comboInInventory || justAdded ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Added
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5" />
+                  Add to Inventory
+                </>
+              )}
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         {/* Visual Viewport - The 3D Layered Image Section */}
         <div className="relative h-56 overflow-hidden">

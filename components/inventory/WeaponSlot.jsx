@@ -66,10 +66,10 @@ export default function WeaponSlot({
   const imageSize = isPremium ? 'w-32 h-32 md:w-40 md:h-40' : 'w-24 h-24 md:w-28 md:h-28';
 
   const handleEmptyClick = () => {
-    if (isPremium || !onBrowse) {
-      window.open(getSkinportSearchUrl(slotId), '_blank');
-    } else {
+    if (onBrowse) {
       onBrowse(slotId);
+    } else {
+      window.open(getSkinportSearchUrl(slotId), '_blank');
     }
   };
 
@@ -100,7 +100,7 @@ export default function WeaponSlot({
               {slot.label}
             </p>
             <p className="text-[10px] text-gray-600 group-hover:text-gray-500 mt-0.5 flex items-center gap-1 justify-center">
-              {(isPremium || !onBrowse) && <ExternalLink className="w-3 h-3" />}
+              {!onBrowse && <ExternalLink className="w-3 h-3" />}
               Browse
             </p>
           </div>

@@ -88,7 +88,33 @@ export default function Home() {
   const [showInventory, setShowInventory] = useState(false);
 
   // Inventory context
-  const { stats } = useInventory();
+  const { stats, setItem, getItem } = useInventory();
+
+  // Add combo to inventory (both knife and gloves)
+  const handleAddComboToInventory = (combo) => {
+    // Add knife
+    setItem('knife', {
+      name: combo.knife,
+      price: combo.knifePrice,
+      condition: combo.knifeCondition,
+      image: combo.knifeImage || imageMap[combo.knife],
+    });
+
+    // Add gloves
+    setItem('gloves', {
+      name: combo.glove,
+      price: combo.glovePrice,
+      condition: combo.gloveCondition,
+      image: combo.gloveImage || imageMap[combo.glove],
+    });
+  };
+
+  // Check if a combo is in inventory (both knife and gloves match)
+  const isComboInInventory = (combo) => {
+    const currentKnife = getItem('knife');
+    const currentGloves = getItem('gloves');
+    return currentKnife?.name === combo.knife && currentGloves?.name === combo.glove;
+  };
 
   // Fetch prices on mount
   useEffect(() => {
@@ -416,6 +442,8 @@ export default function Home() {
                   comboId={comboId}
                   isSelected={selectedComboId === comboId}
                   onClick={() => setSelectedComboId(comboId)}
+                  onAddToInventory={handleAddComboToInventory}
+                  comboInInventory={isComboInInventory(combo)}
                 />
               );
             })}
