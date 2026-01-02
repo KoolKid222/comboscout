@@ -8,6 +8,7 @@ import { getSlotsByCategory, SLOT_CATEGORIES, PREMIUM_SLOTS, WEAPON_SLOTS } from
 import { getStyleScore, getWeaponMatchScore, getSkinData } from '@/lib/styleMatcher';
 import WeaponSlot from './WeaponSlot';
 import WeaponBrowser from './WeaponBrowser';
+import WeaponShowroom from './WeaponShowroom';
 
 // Get rarity info for the knife+glove match score
 const getMatchRarity = (score) => {
@@ -254,8 +255,14 @@ export default function InventoryOverlay({ isOpen, onClose }) {
   const { inventory, stats, removeItem, clearAll, getItem, setItem, totalSlots } = useInventory();
   const [browsingSlot, setBrowsingSlot] = useState(null);
   const [autoFilling, setAutoFilling] = useState(false);
+  const [inspectingWeapon, setInspectingWeapon] = useState(null);
 
   const slotsByCategory = getSlotsByCategory();
+
+  // Handle weapon inspection
+  const handleInspect = ({ item, slotId, imageUrl }) => {
+    setInspectingWeapon({ item, slotId, imageUrl });
+  };
 
   // Get inventory as a simple object for the browser (knife and gloves for scoring)
   const inventoryForBrowser = {
@@ -500,6 +507,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
                     item={getItem('knife')}
                     isPremium
                     onRemove={removeItem}
+                    onInspect={handleInspect}
                   />
                 </div>
 
@@ -524,6 +532,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
                     item={getItem('gloves')}
                     isPremium
                     onRemove={removeItem}
+                    onInspect={handleInspect}
                   />
                 </div>
               </div>
@@ -554,7 +563,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
                     </div>
 
                     {/* Slots Grid */}
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                       {slots.map((slot) => (
                         <WeaponSlot
                           key={slot.id}
@@ -562,6 +571,7 @@ export default function InventoryOverlay({ isOpen, onClose }) {
                           item={getItem(slot.id)}
                           onRemove={removeItem}
                           onBrowse={setBrowsingSlot}
+                          onInspect={handleInspect}
                         />
                       ))}
                     </div>
@@ -586,6 +596,17 @@ export default function InventoryOverlay({ isOpen, onClose }) {
           </div>
         </motion.div>
       )}
+
+      {/* Weapon Showroom */}
+      <WeaponShowroom
+        item={inspectingWeapon?.item}
+        slotId={inspectingWeapon?.slotId}
+        imageUrl={inspectingWeapon?.imageUrl}
+        gloveItem={glovesItem}
+        gloveImageUrl={glovesItem?.image}
+        isOpen={inspectingWeapon !== null}
+        onClose={() => setInspectingWeapon(null)}
+      />
     </AnimatePresence>
   );
 }

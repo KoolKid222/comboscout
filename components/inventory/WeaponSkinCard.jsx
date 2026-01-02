@@ -4,25 +4,33 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Check } from 'lucide-react';
 
-// Score-based rarity colors (matching ComboCard pattern)
+// Score-based rarity colors (matching WeaponSlot style)
 const getScoreRarity = (score) => {
-  if (score >= 90) return { border: 'border-yellow-500/60', glow: 'shadow-yellow-500/20', text: 'text-yellow-400', label: 'Perfect' };
-  if (score >= 80) return { border: 'border-pink-500/60', glow: 'shadow-pink-500/20', text: 'text-pink-400', label: 'Excellent' };
-  if (score >= 70) return { border: 'border-purple-500/60', glow: 'shadow-purple-500/20', text: 'text-purple-400', label: 'Great' };
-  if (score >= 60) return { border: 'border-blue-500/60', glow: 'shadow-blue-500/20', text: 'text-blue-400', label: 'Good' };
-  return { border: 'border-gray-600/60', glow: 'shadow-gray-500/20', text: 'text-gray-400', label: 'Match' };
-};
-
-// Condition badge colors
-const getConditionStyle = (condition) => {
-  const styles = {
-    'Factory New': { bg: 'bg-green-500/20', text: 'text-green-400' },
-    'Minimal Wear': { bg: 'bg-lime-500/20', text: 'text-lime-400' },
-    'Field-Tested': { bg: 'bg-yellow-500/20', text: 'text-yellow-400' },
-    'Well-Worn': { bg: 'bg-orange-500/20', text: 'text-orange-400' },
-    'Battle-Scarred': { bg: 'bg-red-500/20', text: 'text-red-400' },
+  if (score >= 90) return {
+    border: 'border-yellow-500/50',
+    text: 'text-yellow-400',
+    label: 'Perfect'
   };
-  return styles[condition] || { bg: 'bg-gray-500/20', text: 'text-gray-400' };
+  if (score >= 80) return {
+    border: 'border-pink-500/50',
+    text: 'text-pink-400',
+    label: 'Excellent'
+  };
+  if (score >= 70) return {
+    border: 'border-purple-500/50',
+    text: 'text-purple-400',
+    label: 'Great'
+  };
+  if (score >= 60) return {
+    border: 'border-blue-500/50',
+    text: 'text-blue-400',
+    label: 'Good'
+  };
+  return {
+    border: 'border-gray-700/50',
+    text: 'text-gray-400',
+    label: 'Match'
+  };
 };
 
 // Condition abbreviations
@@ -50,8 +58,7 @@ export default function WeaponSkinCard({
   const [isHovered, setIsHovered] = useState(false);
 
   const variant = skin.variants[selectedVariant];
-  const rarity = matchScore !== null ? getScoreRarity(matchScore) : { border: 'border-gray-600/60', glow: 'shadow-gray-500/20', text: 'text-gray-400', label: 'Match' };
-  const conditionStyle = getConditionStyle(variant?.condition);
+  const rarity = matchScore !== null ? getScoreRarity(matchScore) : getScoreRarity(0);
 
   // Fetch image
   useEffect(() => {
@@ -82,58 +89,66 @@ export default function WeaponSkinCard({
 
   return (
     <motion.div
-      className={`relative rounded-xl border ${rarity.border} bg-gray-800/60 backdrop-blur-sm
-        overflow-hidden transition-all duration-200 hover:shadow-lg ${rarity.glow}`}
+      className={`relative overflow-hidden rounded-2xl border-2
+        bg-gray-900/95 backdrop-blur-sm transition-all duration-200
+        ${isHovered ? rarity.border : 'border-gray-700/50'}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      whileHover={{ scale: 1.02, y: -2 }}
+      whileHover={{ scale: 1.02 }}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      layout
     >
+      {/* Background gradient layer */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-800/60 via-gray-900/80 to-black/90" />
+
       {/* Match score badge */}
       {matchScore !== null && (
-        <div className={`absolute top-2 right-2 z-10 px-2 py-1
-          rounded-full ${rarity.border} bg-gray-900/80 backdrop-blur-sm`}>
-          <span className={`text-xs font-bold ${rarity.text}`}>{matchScore}</span>
+        <div className={`absolute top-2 right-2 z-20 px-2 py-0.5 rounded-full
+          font-bold text-[10px] ${rarity.text} bg-black/50 backdrop-blur-sm border border-gray-700/50`}>
+          {matchScore}
         </div>
       )}
 
       {/* Image container */}
-      <div className="relative h-32 flex items-center justify-center p-4 bg-gradient-to-b from-gray-700/20 to-transparent">
+      <div className="relative h-28 flex items-center justify-center p-3">
         {imageLoading ? (
-          <div className="w-24 h-24 bg-gray-700/50 rounded-lg animate-pulse" />
+          <div className="w-20 h-20 bg-gray-800/50 rounded-xl animate-pulse" />
         ) : imageUrl ? (
           <img
             src={imageUrl}
             alt={skin.skinName}
-            className="max-w-full max-h-full object-contain drop-shadow-lg"
+            className="max-w-full max-h-full object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.7)]"
             loading="lazy"
           />
         ) : (
-          <div className="w-24 h-24 bg-gray-700/30 rounded-lg flex items-center justify-center">
-            <span className="text-gray-500 text-xs">No image</span>
+          <div className="w-20 h-20 bg-gray-800/50 rounded-xl flex items-center justify-center">
+            <span className="text-gray-600 text-xs">No Image</span>
           </div>
         )}
       </div>
 
-      {/* Content */}
-      <div className="p-3 space-y-2">
-        {/* Skin name */}
-        <h3 className="text-sm font-semibold text-gray-100 truncate" title={skin.skinName}>
-          {skin.skinName}
-        </h3>
+      {/* Bottom gradient fade */}
+      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-900 to-transparent pointer-events-none" />
 
-        {/* Condition selector (if multiple variants) */}
+      {/* Info Panel - Frosted glass style */}
+      <div className="relative p-3 bg-gray-900/80 border-t border-gray-700/50">
+        {/* Skin name */}
+        <p className={`text-xs font-bold truncate ${rarity.text}`} title={skin.skinName}>
+          {skin.skinName}
+        </p>
+
+        {/* Condition selector */}
         {skin.variants.length > 1 ? (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mt-2">
             {skin.variants.map((v, idx) => (
               <button
                 key={idx}
-                onClick={() => setSelectedVariant(idx)}
-                className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors
+                onClick={(e) => { e.stopPropagation(); setSelectedVariant(idx); }}
+                className={`px-1.5 py-0.5 text-[9px] font-medium rounded transition-all
                   ${selectedVariant === idx
-                    ? `${conditionStyle.bg} ${conditionStyle.text} ring-1 ring-current`
-                    : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700'
+                    ? 'bg-white/10 text-white border border-white/20'
+                    : 'bg-gray-800/50 text-gray-500 border border-transparent hover:text-gray-400'
                   }`}
               >
                 {getConditionAbbrev(v.condition)}
@@ -141,33 +156,35 @@ export default function WeaponSkinCard({
             ))}
           </div>
         ) : (
-          <span className={`inline-block px-1.5 py-0.5 text-[10px] font-medium rounded
-            ${conditionStyle.bg} ${conditionStyle.text}`}>
-            {getConditionAbbrev(variant?.condition)}
-          </span>
+          <div className="mt-2">
+            <span className="inline-block px-1.5 py-0.5 text-[9px] font-medium rounded
+              bg-gray-800/50 text-gray-500">
+              {getConditionAbbrev(variant?.condition)}
+            </span>
+          </div>
         )}
 
         {/* Price and add button */}
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-sm font-mono text-green-400">
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-700/50">
+          <span className="text-green-400 font-mono text-[11px] font-bold">
             ${variant?.price?.toFixed(2) || '0.00'}
           </span>
 
           {isInInventory ? (
-            <span className="flex items-center gap-1 text-xs text-green-400">
-              <Check className="w-3.5 h-3.5" />
+            <span className="flex items-center gap-1 text-[10px] font-medium text-green-400">
+              <Check className="w-3 h-3" />
               Added
             </span>
           ) : (
             <motion.button
-              onClick={handleAdd}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg
-                bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 hover:text-purple-300
-                text-xs font-medium transition-colors"
-              whileHover={{ scale: 1.05 }}
+              onClick={(e) => { e.stopPropagation(); handleAdd(); }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg
+                bg-white/5 hover:bg-white/10 text-white/80 hover:text-white
+                border border-white/10 hover:border-white/20
+                text-[10px] font-medium transition-all"
               whileTap={{ scale: 0.95 }}
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3 h-3" />
               Add
             </motion.button>
           )}
