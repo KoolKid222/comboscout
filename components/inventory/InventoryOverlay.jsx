@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Loader2 } from 'lucide-react';
+import { X, Trash2, Loader2, Share2, Check, ChevronDown } from 'lucide-react';
 import { useInventory } from '@/lib/InventoryContext';
 import { getSlotsByCategory, SLOT_CATEGORIES, PREMIUM_SLOTS, WEAPON_SLOTS } from '@/lib/weaponSlots';
 import { getStyleScore, getWeaponMatchScore, getSkinData } from '@/lib/styleMatcher';
+import { generateShareUrl } from '@/lib/shareUrl';
 import WeaponSlot from './WeaponSlot';
 import WeaponBrowser from './WeaponBrowser';
 import PremiumBrowser from './PremiumBrowser';
@@ -257,6 +258,37 @@ export default function InventoryOverlay({ isOpen, onClose }) {
   const [browsingSlot, setBrowsingSlot] = useState(null);
   const [autoFilling, setAutoFilling] = useState(false);
   const [inspectingWeapon, setInspectingWeapon] = useState(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [showAutoFillSettings, setShowAutoFillSettings] = useState(false);
+  const [autoFillMode, setAutoFillMode] = useState('bestMatch');
+
+  // Auto-fill mode definitions
+  const AUTO_FILL_MODES = {
+    bestMatch: {
+      label: 'Best Match',
+      description: 'Highest scoring skin per slot',
+    },
+    complimentary: {
+      label: 'Complimentary',
+      description: 'Similar or complimentary colors',
+    },
+  };
+
+  const autoFillRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (autoFillRef.current && !autoFillRef.current.contains(e.target)) {
+        setShowAutoFillSettings(false);
+      }
+    };
+
+    if (showAutoFillSettings) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAutoFillSettings]);
 
   const slotsByCategory = getSlotsByCategory();
 
@@ -287,68 +319,72 @@ export default function InventoryOverlay({ isOpen, onClose }) {
   const knifeName = knifeItem?.name || null;
   const gloveName = glovesItem?.name || null;
 
-  // Auto fill all empty weapon slots with best matching skins (monotone + cohesive)
+  // Auto fill all empty weapon slots with best matching skins
   const handleAutoFill = async () => {
     if (!hasKnifeOrGloves) return;
 
     setAutoFilling(true);
+    setShowAutoFillSettings(false);
 
     try {
       // Get all empty non-premium slots
       const emptySlots = Object.keys(WEAPON_SLOTS)
         .filter(id => !PREMIUM_SLOTS.includes(id) && !getItem(id));
 
-      // Get knife/glove skin data for cohesion matching
+      // Get knife/glove skin data
       const knifeData = knifeName ? getSkinData(knifeName) : null;
       const gloveData = gloveName ? getSkinData(gloveName) : null;
 
-      // STEP 1: Calculate Anchor Hue for strict filtering
-      // This ensures a monotone, cohesive loadout
-      const anchorHue = calculateAnchorHue(knifeData, gloveData);
+      // For complimentary mode, calculate anchor hue for color matching
+      const anchorHue = autoFillMode === 'complimentary' ? calculateAnchorHue(knifeData, gloveData) : null;
 
-      // Build initial inventory profile from existing items (knife, gloves, and any filled slots)
+      // Build inventory profile for complimentary mode
       const existingItems = [];
-      if (knifeItem) existingItems.push(knifeItem);
-      if (glovesItem) existingItems.push(glovesItem);
+      if (autoFillMode === 'complimentary') {
+        if (knifeItem) existingItems.push(knifeItem);
+        if (glovesItem) existingItems.push(glovesItem);
 
-      // Add any already-filled weapon slots
-      Object.keys(WEAPON_SLOTS).forEach(slotId => {
-        if (!PREMIUM_SLOTS.includes(slotId)) {
-          const item = getItem(slotId);
-          if (item) existingItems.push(item);
-        }
-      });
+        Object.keys(WEAPON_SLOTS).forEach(slotId => {
+          if (!PREMIUM_SLOTS.includes(slotId)) {
+            const item = getItem(slotId);
+            if (item) existingItems.push(item);
+          }
+        });
+      }
 
-      // Track the current profile (will be updated as we add items)
-      let currentProfile = getInventoryProfile(existingItems);
+      let currentProfile = autoFillMode === 'complimentary' ? getInventoryProfile(existingItems) : null;
       let totalItems = existingItems.length;
 
-      // For each empty slot, fetch skins and pick the best (monotone + cohesive)
+      // For each empty slot, fetch skins and pick the best
       for (const slotId of emptySlots) {
         try {
           const res = await fetch(`/api/weapons?type=${slotId}`);
           const data = await res.json();
 
           if (data.skins && data.skins.length > 0) {
-            // STEP 2: STRICT HUE FILTER - Filter skins BEFORE scoring
-            // This runs before any scoring, so prestige/rarity cannot override it
-            // Only skins within ±45° of anchor hue (or neutrals) pass through
-            const filteredSkins = filterSkinsByAnchorHue(data.skins, anchorHue);
+            let scored;
 
-            // If no skins pass the filter, fall back to all skins (rare edge case)
-            const skinsToScore = filteredSkins.length > 0 ? filteredSkins : data.skins;
-
-            // STEP 3: Score the filtered skins
-            const scored = skinsToScore.map(skin => {
-              const baseScore = getWeaponMatchScore(skin.name, knifeName, gloveName).score;
-              const autoFillBonus = calculateAutoFillBonus(skin.name, currentProfile, totalItems, knifeData, gloveData);
-              return {
+            if (autoFillMode === 'bestMatch') {
+              // BEST MATCH: Pure match score, no color filtering
+              scored = data.skins.map(skin => ({
                 ...skin,
-                baseScore,
-                autoFillBonus,
-                score: baseScore + autoFillBonus,
-              };
-            });
+                score: getWeaponMatchScore(skin.name, knifeName, gloveName).score,
+              }));
+            } else {
+              // COMPLIMENTARY: Apply hue filtering and cohesion bonuses
+              const filteredSkins = filterSkinsByAnchorHue(data.skins, anchorHue);
+              const skinsToScore = filteredSkins.length > 0 ? filteredSkins : data.skins;
+
+              scored = skinsToScore.map(skin => {
+                const baseScore = getWeaponMatchScore(skin.name, knifeName, gloveName).score;
+                const cohesionBonus = calculateAutoFillBonus(skin.name, currentProfile, totalItems, knifeData, gloveData);
+                return {
+                  ...skin,
+                  score: baseScore + cohesionBonus,
+                };
+              });
+            }
+
             scored.sort((a, b) => b.score - a.score);
 
             // Add best skin to inventory (use cheapest variant)
@@ -358,15 +394,17 @@ export default function InventoryOverlay({ isOpen, onClose }) {
               name: variant.fullName,
               price: variant.price,
               condition: variant.condition,
-              image: null, // will load lazily
+              image: null,
             };
 
             setItem(slotId, newItem);
 
-            // Update the profile for the next iteration
-            existingItems.push(newItem);
-            currentProfile = getInventoryProfile(existingItems);
-            totalItems++;
+            // Update profile for next iteration (complimentary mode only)
+            if (autoFillMode === 'complimentary') {
+              existingItems.push(newItem);
+              currentProfile = getInventoryProfile(existingItems);
+              totalItems++;
+            }
           }
         } catch (err) {
           console.error(`Error fetching skins for ${slotId}:`, err);
@@ -376,6 +414,21 @@ export default function InventoryOverlay({ isOpen, onClose }) {
       setAutoFilling(false);
     }
   };
+
+  // Handle sharing inventory
+  const handleShare = async () => {
+    const shareUrl = generateShareUrl(inventory);
+    if (!shareUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy share URL:', err);
+    }
+  };
+
   const matchScore = hasKnifeAndGloves
     ? getStyleScore(knifeItem.name, glovesItem.name)
     : null;
@@ -466,21 +519,100 @@ export default function InventoryOverlay({ isOpen, onClose }) {
 
               {/* Action buttons */}
               <div className="flex items-center justify-center gap-3 mt-4">
-                {/* Auto Fill button */}
-                <button
-                  onClick={handleAutoFill}
-                  disabled={!hasKnifeOrGloves || autoFilling}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium
-                    flex items-center gap-2 transition-colors
-                    ${hasKnifeOrGloves
-                      ? 'bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30'
-                      : 'bg-gray-500/10 border border-gray-500/20 text-gray-500 cursor-not-allowed'
-                    }`}
-                  title={!hasKnifeOrGloves ? 'Add knife or gloves first' : 'Auto fill all empty slots with best matching skins'}
-                >
-                  {autoFilling && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {autoFilling ? 'Filling...' : 'Auto Fill'}
-                </button>
+                {/* Auto Fill with settings dropdown */}
+                <div className="relative" ref={autoFillRef}>
+                  <div className="flex items-center">
+                    <button
+                      onClick={handleAutoFill}
+                      disabled={!hasKnifeOrGloves || autoFilling}
+                      className={`px-4 py-2 rounded-l-lg text-sm font-medium
+                        flex items-center gap-2 transition-colors
+                        ${hasKnifeOrGloves
+                          ? 'bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30'
+                          : 'bg-gray-500/10 border border-gray-500/20 text-gray-500 cursor-not-allowed'
+                        }`}
+                      title={!hasKnifeOrGloves ? 'Add knife or gloves first' : `Auto fill (${AUTO_FILL_MODES[autoFillMode].label})`}
+                    >
+                      {autoFilling && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {autoFilling ? 'Filling...' : 'Auto Fill'}
+                    </button>
+                    <button
+                      onClick={() => setShowAutoFillSettings(!showAutoFillSettings)}
+                      disabled={autoFilling}
+                      className={`px-2 py-2 rounded-r-lg text-sm font-medium
+                        flex items-center transition-colors border-l-0
+                        ${hasKnifeOrGloves
+                          ? 'bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30'
+                          : 'bg-gray-500/10 border border-gray-500/20 text-gray-500'
+                        }`}
+                    >
+                      <ChevronDown className={`w-4 h-4 transition-transform ${showAutoFillSettings ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+
+                  {/* Settings Dropdown */}
+                  <AnimatePresence>
+                    {showAutoFillSettings && (
+                      <motion.div
+                        className="absolute top-full left-0 mt-1 min-w-full bg-gray-900/95 backdrop-blur-md
+                          border border-purple-500/30 rounded-lg shadow-xl overflow-hidden z-50"
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                      >
+                        <div className="p-1">
+                          {Object.entries(AUTO_FILL_MODES).map(([modeId, mode]) => (
+                            <button
+                              key={modeId}
+                              onClick={() => {
+                                setAutoFillMode(modeId);
+                                setShowAutoFillSettings(false);
+                              }}
+                              className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-md transition-colors
+                                ${autoFillMode === modeId
+                                  ? 'bg-purple-500/20 text-purple-400'
+                                  : 'text-gray-300 hover:bg-white/5'
+                                }`}
+                            >
+                              <div className="text-left">
+                                <p className="text-sm font-medium whitespace-nowrap">{mode.label}</p>
+                                <p className="text-[10px] text-gray-500 whitespace-nowrap">{mode.description}</p>
+                              </div>
+                              {autoFillMode === modeId && (
+                                <Check className="w-4 h-4 flex-shrink-0 text-purple-400" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Share button */}
+                {stats.filledSlots > 0 && (
+                  <button
+                    onClick={handleShare}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                      flex items-center gap-2
+                      ${shareCopied
+                        ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                        : 'bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20'
+                      }`}
+                  >
+                    {shareCopied ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Link Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="w-4 h-4" />
+                        Share
+                      </>
+                    )}
+                  </button>
+                )}
 
                 {/* Clear all button */}
                 {stats.filledSlots > 0 && (

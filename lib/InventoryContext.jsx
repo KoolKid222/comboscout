@@ -23,6 +23,7 @@ const ACTIONS = {
   SET_ITEM: 'SET_ITEM',
   REMOVE_ITEM: 'REMOVE_ITEM',
   CLEAR_ALL: 'CLEAR_ALL',
+  BULK_SET: 'BULK_SET',
 };
 
 // Reducer function
@@ -59,6 +60,29 @@ function inventoryReducer(state, action) {
 
     case ACTIONS.CLEAR_ALL:
       return createEmptyInventory();
+
+    case ACTIONS.BULK_SET: {
+      const { slots } = action.payload;
+      const newSlots = {};
+
+      // Process each slot from the payload
+      Object.entries(slots).forEach(([slotId, slotData]) => {
+        if (WEAPON_SLOTS[slotId] && slotData?.item) {
+          newSlots[slotId] = {
+            item: {
+              ...slotData.item,
+              addedAt: new Date().toISOString(),
+            },
+          };
+        }
+      });
+
+      return {
+        ...state,
+        slots: newSlots,
+        lastUpdated: new Date().toISOString(),
+      };
+    }
 
     default:
       return state;
@@ -128,6 +152,14 @@ export function InventoryProvider({ children }) {
     dispatch({ type: ACTIONS.CLEAR_ALL });
   }, []);
 
+  // Action: Bulk set items (for importing shared loadouts)
+  const bulkSetItems = useCallback((slots) => {
+    dispatch({
+      type: ACTIONS.BULK_SET,
+      payload: { slots },
+    });
+  }, []);
+
   // Check if an item (by name) is in inventory
   const isInInventory = useCallback((itemName) => {
     const slotId = detectWeaponSlot(itemName);
@@ -166,12 +198,13 @@ export function InventoryProvider({ children }) {
     addItem,
     removeItem,
     clearAll,
+    bulkSetItems,
 
     // Queries
     isInInventory,
     getItem,
     hasItem,
-  }), [inventory, stats, setItem, addItem, removeItem, clearAll, isInInventory, getItem, hasItem]);
+  }), [inventory, stats, setItem, addItem, removeItem, clearAll, bulkSetItems, isInInventory, getItem, hasItem]);
 
   return (
     <InventoryContext.Provider value={value}>

@@ -379,7 +379,7 @@ export default function InspectionOverlay({ combo, imageMap, comboId, isOpen, on
 
           {/* ========== THE STAGE ========== */}
           <div
-            className="absolute inset-0 flex items-center justify-center"
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
             style={{ perspective: 1200 }}
           >
             {/* 3D Tilt Container */}
