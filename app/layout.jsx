@@ -1,4 +1,5 @@
 import './globals.css'
+import { Analytics } from '@vercel/analytics/next'
 import { InventoryProvider } from '@/lib/InventoryContext'
 
 export const metadata = {
@@ -13,6 +14,7 @@ export default function RootLayout({ children }) {
         <InventoryProvider>
           {children}
         </InventoryProvider>
+        <Analytics />
       </body>
     </html>
   )
